@@ -1,0 +1,370 @@
+---
+title: "1. part-to-whole"
+author: "S.Y. Husada"
+date: "2024-04-01"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Objective
+
+Compare and visualize Bayern Leverkusen shooting stats in the bundesliga
+up to 01 April 2024.
+
+# Preparation
+
+## Library
+
+```{r}
+library(tidyverse)
+library(dlookr)
+library(janitor)
+library(worldfootballR)
+library(camcorder)
+```
+
+## Load Data
+
+Load data from worldfootballR.
+
+```{r}
+# dat <-
+#   fb_season_team_stats(
+#     country = "GER",
+#     gender = "M",
+#     season_end_year = "2024", tier = "1st", stat_type = "shooting")
+```
+
+Save and load data in and from RDS.
+
+```{r}
+# saveRDS(object = dat, file = "b2324s.RDS")
+bundes_23_24_shooting <- readRDS("b2324s.RDS")
+```
+
+```{r}
+bundes_23_24_shooting %>% head()
+```
+
+## Clean Data
+
+```{r}
+bundes_23_24_shooting <- bundes_23_24_shooting %>% clean_names() 
+```
+
+```{r}
+bundes_23_24_shooting %>% head()
+```
+
+```{r}
+bundes_23_24_shooting %>% get_dupes()
+```
+
+```{r}
+anyNA(bundes_23_24_shooting)
+```
+
+```{r}
+bundes_23_24_shooting_team  <- bundes_23_24_shooting %>% 
+  filter(team_or_opponent == "team") %>% 
+  remove_constant() %>% 
+  mutate(squad = as_factor(squad))
+bundes_23_24_shooting_team %>% head()
+```
+
+```{r}
+bundes_23_24_shooting_leverkusen <- 
+  bundes_23_24_shooting_team %>% 
+  filter(squad == "Leverkusen")
+bundes_23_24_shooting_leverkusen
+```
+
+# Understand Data
+
+The data is split into standard and expected category, and each category
+are further split into accumulated data and their per90 version.
+
+## Glossary {.tabset}
+
+Pl -- \# of Players Number of Players used in Games
+
+### Standard
+
+#### Accumulative
+
+-   **gls_standard**
+
+```         
+Goals scored or allowed
+```
+
+-   **sh_standard**
+
+```         
+Shots Total Does not include penalty kicks
+```
+
+-   **so_t_standard**
+
+```         
+Shots on Target Note: Shots on target do not include penalty kicks
+```
+
+-   **so_t_percent_standard**
+
+```         
+Percentage of shots that are on target Minimum .395 shots per squad game to qualify as a leader Note: Shots on target do not include penalty kicks
+```
+
+-   **g_per_sh_standard**
+
+```         
+Goals per shot Minimum .395 shots per squad game to qualify as a leader
+```
+
+-   **g_per_so_t_standard**
+
+```         
+Goals per shot on target Minimum .111 shots on target per squad game to qualify as a leader Note: Shots on target do not include penalty kicks
+```
+
+-   **dist_standard**
+
+```         
+Average distance, in yards, from goal of all shots taken Minimum .395 shots per squad game to qualify as a leader Does not include penalty kicks
+```
+
+-   **fk_standard**
+
+```         
+Shots from Free Kicks
+```
+
+-   **pk_standard**
+
+```         
+Penalty Kicks Made
+```
+
+-   **p_katt_standard**
+
+```         
+Penalty Kicks Attempted
+```
+
+#### Per90
+
+-   **sh_per_90_standard**
+
+```         
+Shots total per 90 minutes Minimum 30 minutes played per squad game to qualify as a leader
+```
+
+-   **so_t_per_90_standard**
+
+```         
+Shots on target per 90 minutes Minimum 30 minutes played per squad game to qualify as a leader Note: Shots on target do not include penalty kicks
+```
+
+### Expected
+
+-   **x_g_expected**
+
+```         
+Expected Goals xG totals include penalty kicks, but do not include penalty shootouts (unless otherwise noted). Provided by Opta. An underline indicates there is a match that is missing data, but will be updated when available.
+```
+
+-   **px_g_expected**
+
+```         
+Non-Penalty Expected Goals Provided by Opta. An underline indicates there is a match that is missing data, but will be updated when available.
+```
+
+-   **npx_g_per_sh_expected**
+
+```         
+Non-Penalty Expected Goals per shot Provided by Opta. An underline indicates there is a match that is missing data, but will be updated when available. Minimum .395 shots per squad game to qualify as a leader
+```
+
+-   **g_minus_x_g_expected**
+
+```         
+Goals minus Expected Goals xG totals include penalty kicks, but do not include penalty shootouts (unless otherwise noted). Provided by Opta. An underline indicates there is a match that is missing data, but will be updated when available.
+```
+
+-   **np_g_minus_x_g_expected**
+
+```         
+Non-Penalty Goals minus Non-Penalty Expected Goals xG totals include penalty kicks, but do not include penalty shootouts (unless otherwise noted). Provided by Opta. An underline indicates there is a match that is missing data, but will be updated when available.
+```
+
+## Descriptive
+
+```{r}
+bundes_23_24_shooting_team %>% summary()
+```
+```{r}
+bundes_23_24_shooting_team %>% select(-squad) %>% diagnose_numeric()
+```
+```{r}
+bundes_23_24_shooting_team %>% select(-squad) %>% describe()
+```
+
+```{r}
+bundes_23_24_shooting_normality <- 
+  bundes_23_24_shooting_team %>% 
+  select(-squad) %>% 
+  normality() %>% 
+  arrange(p_value) %>% 
+  mutate(is_normal = ifelse(p_value < 0.05, "not_normal", "normal"))
+
+bundes_23_24_shooting_normality
+```
+
+#### Deciding Metrics 
+
+I'll use metrics with normal distribution and expected category.
+
+```{r}
+bundes_23_24_shooting_normality %>% 
+  filter(
+    is_normal == "normal"
+    )
+  
+```
+
+Metrics I choose are: 
+- to measure open play shooting deadliness: 
+  np_g_minus_x_g_expected  
+- to measure shot from set-piece deadliness: 
+  gls_standard / (fk_standard + pk_standard)
+- to measure shooting accuracy:
+  so_t_percent_standard
+- shoting distance:
+  dist_standard
+  
+# Viz
+
+
+```{r}
+b23224st_longer <- 
+  bundes_23_24_shooting_team %>% 
+  select(np_g_minus_x_g_expected, gls_standard, fk_standard,  pk_standard, so_t_percent_standard, dist_standard) %>% 
+  transmute(
+    "Open Play Shot" = np_g_minus_x_g_expected,
+    "Set-piece Shot" = (gls_standard / (fk_standard + pk_standard)),
+    "Accuracy" = so_t_percent_standard,
+    "Distance" = dist_standard
+  ) %>% 
+  pivot_longer(cols = everything(), names_to = "vars", values_to = "value") %>% 
+  group_by(vars) %>% 
+  summarise_all(mean)
+
+b23224st_longer
+```
+
+```{r}
+b23224st_longer_leverkusen <- 
+  bundes_23_24_shooting_team %>% 
+  filter(squad == "Leverkusen") %>% 
+  select(np_g_minus_x_g_expected, gls_standard, fk_standard,  pk_standard, so_t_percent_standard, dist_standard) %>% 
+  transmute(
+    "Open Play Shot" = np_g_minus_x_g_expected,
+    "Set-piece Shot" = (gls_standard / (fk_standard + pk_standard)),
+    "Accuracy" = so_t_percent_standard,
+    "Distance" = dist_standard
+  ) %>% 
+  pivot_longer(cols = everything(), names_to = "vars", values_to = "value")
+b23224st_longer_leverkusen
+```
+
+
+```{r}
+
+b23224st_longer_scaled <- b23224st_longer %>% 
+  select(-value) %>% 
+  bind_cols(b23224st_longer$value %>% scale(center = F) %>% as_tibble_col()) %>% 
+  mutate( value = round(value, 5))
+b23224st_longer_scaled
+```
+
+```{r}
+leverkusen_longer_scaled <- b23224st_longer_leverkusen %>% 
+  select(-value) %>% 
+  bind_cols(b23224st_longer_leverkusen$value %>% scale(center = F) %>% as_tibble_col()) %>% 
+  mutate( value = round(value, 5))
+leverkusen_longer_scaled
+```
+
+
+
+```{r}
+gg_record(
+  device = "png", 
+  width = 1080 * 2, 
+  height = 1080 * 2, 
+  units = "px", 
+  dpi = 320)
+```
+
+
+```{r echo=FALSE}
+
+
+theme_setting <- 
+  theme(
+        panel.background = element_rect(fill = "#F3E500"),
+        plot.background = element_rect(fill = "#F3E500",colour = "#F3E500"),
+        axis.title.x = element_blank(), 
+        axis.title.y = element_blank(), 
+        axis.text = element_text(size = 30,face = "bold"), 
+        plot.title = element_text(
+          face = "bold",
+          size = 51,
+          margin = margin(t = 30, b = 5)
+          ),
+        plot.caption = element_text(
+          face = "bold",
+          size = 30,
+          margin = margin(b = 0,t = 0)
+          ),
+        plot.subtitle = element_text(
+          face = "italic",
+          size = 40,
+          margin = margin(b = 0,t = 0)
+          ),
+        plot.title.position = "panel",)
+
+ggplot(data = b23224st_longer_scaled)+
+  geom_col(
+    aes(x = vars, y = value), 
+    fill = "#000000",
+    show.legend = TRUE,
+    alpha = .8,
+    position = position_jitter(seed = 1,width = 0.15)
+    )+
+  geom_col(
+    data = leverkusen_longer_scaled,
+    aes(
+      x = vars, 
+      y = value
+    ),
+    fill = "#E32221",
+    show.legend = TRUE,
+    alpha = .6
+           )+
+  coord_polar()+
+  theme_setting+
+  labs(title = "Shooting Stats: Leverkusen vs Bundesliga Average",
+       subtitle = "by 1 April 2024",
+       caption = "Leverkusen (Red) vs Bundesliga Average (Black)")
+
+```
+
