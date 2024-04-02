@@ -1,0 +1,299 @@
+---
+title: "day_2 - neo"
+author: "Sasmito Yudha Husada"
+format: html
+---
+
+
+```{r}
+library(tidyverse)
+library(rvest)
+```
+# Objective
+
+Visualize the progression of Indonesian National Football Team
+
+# Preparation
+
+## Library
+
+```{r}
+library(tidyverse)
+library(tsibble)
+library(rvest)
+library()
+library(camcorder)
+```
+
+
+## Scrape Data
+
+```{r}
+nat_team_wiki <- read_html("https://en.wikipedia.org/wiki/Indonesia_national_football_team")
+```
+
+```{r}
+table_list <- nat_team_wiki %>% html_elements(".wikitable") %>% html_table()
+```
+
+```{r}
+aff_df <- table_list[14] %>% as.data.frame()
+```
+
+```{r}
+first_row_for_names <- aff_df[1,] %>% as_vector() %>% unname() %>% tolower()
+first_row_for_names
+```
+```{r}
+colnames(aff_df) <- first_row_for_names
+aff_df
+```
+
+## Wrangling Data
+
+```{r}
+
+result_level <-
+  c("Group stage", "Semi-finals", "Fourth place", "Third place", "Runners-up")
+
+aff_df_cleaned <- aff_df[-1,] %>%
+  select(-squad) %>% 
+  remove_rownames() %>% 
+  filter(year != "Total") %>% 
+  mutate(
+    year = as.integer(year),
+    result = factor(result, levels = result_level),
+    position = str_sub(position, start = 1, end = 1) %>% as.integer(),
+    pld = as.integer(pld),
+    w = as.integer(w),
+    d = as.integer(d),
+    l = as.integer(l),
+    gf = as.integer(gf),
+    ga = as.integer(ga)
+    )
+aff_df_cleaned
+```
+
+
+
+
+#### Deciding Metrics
+
+I want to evaluate three rating from these stats:
+1. Winning rate of the team, calculated by dividing matches won with matches played.
+2. Offensive rate of the team, calculated by dividing goal for with matches played.
+3. Defensive rate of the team, calculated by finding the complement of goal against divided by matches played.
+
+```{r}
+aff_df_metricized <- 
+  aff_df_cleaned %>% 
+  mutate(
+    win_rate = round(w / pld, 3),
+    offensive_rate = round(gf / pld, 3),
+    defensive_rate = (1 - round(ga / pld, 3)),
+    sty_era = ifelse(year <= 2020, yes = "Before Shin Tae-yong", no = "Shin Tae-yong Era")
+  )
+aff_df_metricized 
+```
+
+
+```{r}
+aff_df_longer <- aff_df_metricized %>% 
+  pivot_longer(cols = 10:12, names_to = "num_vars", values_to = "values")
+aff_df_longer
+```
+
+## Visualization
+
+```{r}
+gg_record(
+  
+  dir = "~/R/30daychartchallenge/my_30daychartchallenge/day_2",
+  device = "jpeg", 
+  width = 1080 * 2.5, 
+  height = 1080 * 1.5, 
+  units = "px", 
+  dpi = 320
+)
+```
+#### Def Rate
+
+```{r}
+theme_setting <- 
+  theme(
+        panel.background = element_rect(fill = "#ffffff"),
+        plot.background = element_rect(fill = "#ffffff",colour = "#ffffff"),
+        axis.title.x = element_blank(), 
+        axis.title.y = element_text(margin = margin(r = 15, l = 10)), 
+        axis.text = element_text(size = 8,face = "bold"), 
+        plot.title = element_text(
+          face = "bold",
+          size = rel(1.2),
+          margin = margin(t = 30, b = 5)
+          ),
+        plot.caption = element_text(
+          face = "bold",
+          size = rel(0.6),
+          margin = margin(b = 0,t = 15)
+          ),
+        plot.subtitle = element_text(
+          face = "italic",
+          size = rel(1),
+          margin = margin(b = 0,t = 0)
+          ),
+        plot.title.position = "panel",
+        legend.position = "none")
+        
+
+defensive_rate <- 
+  ggplot(data = aff_df_longer)+
+  geom_line(
+    data = aff_df_metricized,
+    aes(x = year, y = (10 - ga)),
+    col = "#ff0000"
+    )+
+  geom_point(
+    shape = 16,
+     data = aff_df_metricized,
+     aes(
+       x = year, 
+       y = (10 - ga), 
+       size = defensive_rate,
+       col = defensive_rate
+       ))+
+  theme_setting+
+  labs(title = "Defensive Rate", y = "10 - Goal Against", x = "Year")+
+  scale_color_gradient(low = "black", high = "#ff0000")+
+  facet_wrap(vars(sty_era))+
+  expand_limits(y = rel(7))
+
+defensive_rate
+```
+#### Off Rate
+```{r}
+theme_setting <- 
+  theme(
+        panel.background = element_rect(fill = "#ffffff"),
+        plot.background = element_rect(fill = "#ffffff",colour = "#ffffff"),
+        axis.title.x = element_blank(), 
+        axis.title.y = element_text(margin = margin(r = 15, l = 10)), 
+        axis.text = element_text(size = 6,face = "bold"), 
+        plot.title = element_text(
+          face = "bold",
+          size = rel(1.05),
+          margin = margin(t = 30, b = 5)
+          ),
+        plot.caption = element_text(
+          face = "bold",
+          size = rel(0.8),
+          margin = margin(b = 0,t = 15)
+          ),
+        plot.subtitle = element_text(
+          face = "italic",
+          size = rel(1),
+          margin = margin(b = 0,t = 0)
+          ),
+        plot.title.position = "panel",
+        legend.position = "none")
+        
+
+offensive_rate <- 
+  ggplot(data = aff_df_longer)+
+  geom_line(
+    data = aff_df_metricized,
+    aes(x = year, y = gf),
+    col = "#ff0000"
+    )+
+  geom_point(
+    shape = 16,
+     data = aff_df_metricized,
+     aes(
+       x = year, 
+       y = gf, 
+       size = offensive_rate,
+       col = offensive_rate
+       ))+
+  theme_setting+
+  labs(title = "Offensive Rate", y = "Goal For", x = "Year", caption = "The brighter and the bigger the dots the better")+
+  scale_color_gradient(low = "black", high = "#ff0000")+
+  facet_wrap(vars(sty_era))+
+  expand_limits(y = rel(7))
+
+offensive_rate
+```
+#### Win Rate
+```{r}
+theme_setting <- 
+  theme(
+        panel.background = element_rect(fill = "#ffffff"),
+        plot.background = element_rect(fill = "#ffffff",colour = "#ffffff"),
+        axis.title.x = element_blank(), 
+        axis.title.y = element_text(margin = margin(r = 15, l = 10)), 
+        axis.text = element_text(size = 6,face = "bold"), 
+        plot.title = element_text(
+          face = "bold",
+          size = rel(1.05),
+          margin = margin(t = 30, b = 5)
+          ),
+        plot.caption = element_text(
+          face = "bold",
+          size = rel(0.8),
+          margin = margin(b = 0,t = 10)
+          ),
+        plot.subtitle = element_text(
+          face = "italic",
+          size = rel(1),
+          margin = margin(b = 0,t = 0)
+          ),
+        plot.title.position = "panel",
+        legend.position = "none")
+        
+
+win_rate <- 
+  ggplot(data = aff_df_longer)+
+  geom_line(
+    data = aff_df_metricized,
+    aes(x = year, y = w),
+    col = "#ff0000"
+    )+
+  geom_point(
+    shape = 16,
+     data = aff_df_metricized,
+     aes(
+       x = year, 
+       y = w, 
+       size = win_rate,
+       col = win_rate
+       ))+
+  theme_setting+
+  labs(title = "Win Rate", y = "Matches Won", x = "Year")+
+  scale_color_gradient(low = "black", high = "#ff0000")+
+  facet_wrap(vars(sty_era))+
+  expand_limits(y = rel(7))
+
+win_rate
+```
+
+#### Cowplot
+```{r}
+title <- ggdraw() + 
+  draw_label(
+    "Progression of Indonesian National Team",
+    fontface = 'bold'
+  ) +
+  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(5, 0, 0, 10)
+  )
+
+plot_grid(
+  title, 
+  defensive_rate, 
+  offensive_rate, 
+  ncol = 1, 
+  rel_heights = c(0.5, 3.5, 4), 
+  theme = theme(plot.background = element_rect(fill = "white"))
+)
+```
+

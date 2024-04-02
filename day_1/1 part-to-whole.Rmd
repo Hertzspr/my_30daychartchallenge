@@ -253,6 +253,8 @@ Metrics I choose are:
 # Viz
 
 
+
+
 ```{r}
 b23224st_longer <- 
   bundes_23_24_shooting_team %>% 
@@ -307,6 +309,7 @@ leverkusen_longer_scaled
 
 ```{r}
 gg_record(
+  dir = "~/R/30daychartchallenge/my_30daychartchallenge/day_1",
   device = "png", 
   width = 1080 * 2, 
   height = 1080 * 2, 
