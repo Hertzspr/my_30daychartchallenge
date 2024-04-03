@@ -21,6 +21,8 @@ Xabi Alonso was hired at the 5th of October in 2022, while Bundesliga usually st
 ```{r}
 library(worldfootballR)
 library(tidyverse)
+library(cowplot)
+library(camcorder)
 ```
 
 ## Load Data
@@ -133,7 +135,7 @@ mt <- "Leverkusen Player Transfers Under Xabi Alonso"
 
 
 theme_setting <-
-  theme_minimal(base_size = 10)+ 
+  theme_minimal(base_size = 7)+ 
   theme(
     plot.title.position = "panel", 
     plot.subtitle = ggtext::element_markdown(),
@@ -141,23 +143,24 @@ theme_setting <-
     legend.text = element_text(size = rel(1.3))
     )
 
-ggplot(lvk_4viz_df,
+lev_tf <- 
+  ggplot(lvk_4viz_df,
     aes(
       x = tf_direction,
       y = reorder(player_name, transfer_fee),
       fill = transfer_type
     )
   ) +
-  geom_col(alpha = 0.45) +
+  geom_col(alpha = 0.75) +
   geom_text(
-    size = 2.8,
+    size = 2,
     aes(
       label = player_name, 
       hjust = ifelse(tf_direction > 0, 1.05, -0.05)
       )
     )+
   geom_text(
-    size = 3,
+    size = 2,
     aes(
       label = transfer_fee_label, 
       hjust = ifelse(tf_direction > 0, -0.25, 1.2)
@@ -182,17 +185,18 @@ ggplot(lvk_4viz_df,
 ## Table Comparison
 ```{r}
 theme_setting <-
-  theme_minimal(base_size = 10)+ 
+  theme_minimal(base_size = 7)+ 
   theme(
     plot.title.position = "panel", 
     plot.subtitle = ggtext::element_markdown(),
     title = element_text(size = rel(1.5)),
     legend.text = element_text(size = rel(1.3)),
-    plot.margin = margin(20, 30, 40, 30),
+    plot.margin = margin(20, 20, 20, 20),
     axis.text.x = element_blank()
     )
 
-leverkusen_table %>% 
+lev_tab <- 
+  leverkusen_table %>% 
   ggplot(
     aes(x = Season_End_Year, y = Pts.MP)
   )+
@@ -200,24 +204,28 @@ leverkusen_table %>%
   geom_point(aes(size = Pts, col = MP), show.legend = F)+
   geom_label(
     data = leverkusen_table %>% filter(Season_End_Year == 2023),
-    size = 2.1,
+    size = 1.3,
     aes(
       x = Season_End_Year, 
       y = Pts.MP, 
       label = paste0(
         "Season End: ", Season_End_Year, 
         "\nMatch Played: ", MP, 
-        "\nPoints Gained: ", Pts)),nudge_y = 0.35)+
+        "\nPoints Gained: ", Pts)),
+    nudge_y = 0.35,
+    nudge_x = -0.15)+
   geom_label(
     data = leverkusen_table %>% filter(Season_End_Year == 2024),
-    size = 2.1,
+    size = 1.3,
     aes(
       x = Season_End_Year, 
       y = Pts.MP, 
       label = paste0(
         "Season Ongoing: ", Season_End_Year, 
         "\nMatch Played: ", MP, 
-        "\nPoints Gained: ", Pts)),nudge_y = -0.35
+        "\nPoints Gained: ", Pts)),
+    nudge_y = -0.35,
+    nudge_x = 0.15
   )+
   labs(
     title = "Leverkusen Points per Match Played", 
@@ -231,5 +239,41 @@ leverkusen_table %>%
   theme_setting+
   scale_color_gradient(low =  "#E32221", high = "#F3E500" )
   
+```
+## Cowplot
+
+```{r}
+gg_record(
+  
+  dir = "~/R/30daychartchallenge/my_30daychartchallenge/day_3",
+  device = "jpeg", 
+  width = 1080 * 2, 
+  height = 1080 * 1.5, 
+  units = "px", 
+  dpi = 320
+)
+```
+
+
+```{r}
+title <- ggdraw() + 
+  draw_label(
+    "Effective Transfers for Leverkusen Makeover",
+    fontface = 'bold',
+  ) +
+  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 7)
+  )
+
+plot_grid(
+  title, 
+  lev_tf, 
+  lev_tab, 
+  ncol = 1, 
+  rel_heights = c(1,3,3), 
+  theme = theme(plot.background = element_rect(fill = "white"))
+)
 ```
 
