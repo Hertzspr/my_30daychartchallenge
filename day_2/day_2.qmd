@@ -278,13 +278,13 @@ win_rate
 ```{r}
 title <- ggdraw() + 
   draw_label(
-    "Progression of Indonesian National Team",
-    fontface = 'bold'
+    "Progression of Indonesian National Football Team Performance in AFF Championship",
+    fontface = 'bold',
   ) +
   theme(
     # add margin on the left of the drawing canvas,
     # so title is aligned with left edge of first plot
-    plot.margin = margin(5, 0, 0, 10)
+    plot.margin = margin(0, 0, 0, 7)
   )
 
 plot_grid(
